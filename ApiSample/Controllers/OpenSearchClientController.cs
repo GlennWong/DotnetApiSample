@@ -16,10 +16,70 @@ namespace ApiSample.Controllers
         {
             _logger = logger;
 
-            var connectionSettings = new ConnectionSettings(new Uri("http://localhost:9200"))
-                .BasicAuthentication("admin", "cGFzc3dvcmQK");
+            var connectionSettings = new ConnectionSettings(new Uri("https://vpc-awsdevus-es-pluto-v5-kzvbmh5mxeemx3jmegaahb6jqu.us-east-1.es.amazonaws.com"))
+                //.BasicAuthentication("admin", "cGFzc3dvcmQK");
+                .DefaultIndex("es-pluto-index-v2");
 
             _client = new OpenSearchClient(connectionSettings);
+        }
+
+        // Get all indices
+        [HttpGet("BulkAsync")]
+        public async Task<IActionResult> GetBulkAsync()
+        {
+            _logger.LogInformation("Testing BulkAsync");
+
+            var documents = new List<object>
+            {
+                new
+                {
+                    campaignid = 102938,
+                    modifieddate = "01/11/2024 02:05:31 AM",
+                    eventType = 2,
+                    nonbillablespend = 0.0,
+                    dayhour = "2024-01-10T00:00:00",
+                    postingid = "9807bb49-607e-4e55-b1a1-96cfdf298ff9",
+                    providercode = "adeccoftpin",
+                    cpas_enabled_cpc = 0.0,
+                    billableclicks = 20,
+                    orig_cpc = 0.25,
+                    cpc = 0.25,
+                    spend = 5.0,
+                    contractid = 109,
+                    nonbillableclicks = 0,
+                    day = "2024-01-10",
+                    overage = 0.0
+                }
+                // Add other documents here
+            };
+
+            var bulkRequest = new BulkRequest("es-pluto-index-v2")
+            {
+                Operations = new List<IBulkOperation>()
+            };
+
+            foreach (var doc in documents)
+            {
+                bulkRequest.Operations.Add(new BulkIndexOperation<object>(doc));
+            }
+
+            var response = await _client.BulkAsync(bulkRequest);
+
+            if (response.Errors)
+            {
+                foreach (var itemWithError in response.ItemsWithErrors)
+                {
+                    _logger.LogInformation($"Failed to index document ID: {itemWithError.Id}, Error: {itemWithError.Error.Reason}");
+                }
+            }
+            else
+            {
+                _logger.LogInformation("Bulk operation completed successfully.");
+            }
+
+            _logger.LogInformation(response.ToString());
+
+            return StatusCode((int)(response.ApiCall.HttpStatusCode ?? 500), response.DebugInformation);
         }
 
         // Get all indices
